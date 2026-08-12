@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id           String        @id @default(uuid())
+  tipo         TipoUsuario
+  nome         String
+  email        String        @unique
+  telefone     String?
+  senhaHash    String
+  criadoEm     DateTime      @default(now())
+  cliente      Cliente?
+  profissional Profissional?
+  empresas     Empresa[]     @relation("EmpresaAdmins")
+}
+
+model Empresa {
+  id            String         @id @default(uuid())
+  nome          String
+  setor         String
+  descricao     String?
+  endereco      String?
+  criadoEm      DateTime       @default(now())
+  assinatura    Assinatura?
+  profissionais Profissional[]
+  servicos      Servico[]
+  admins        Usuario[]      @relation("EmpresaAdmins")
+}
+
+model Assinatura {
+  id               String           @id @default(uuid())
+  empresaId        String           @unique
+  plano            Plano
+  valorMensal      Decimal
+  status           StatusAssinatura @default(PENDENTE)
+  mpPreapprovalId  String?          @unique
+  iniciadaEm       DateTime?
+  proximaCobranca  DateTime?
+  tentativasFalhas Int              @default(0)
+  ultimaFalhaEm    DateTime?
+  criadoEm         DateTime         @default(now())
+  atualizadoEm     DateTime         @updatedAt
+  empresa          Empresa          @relation(fields: [empresaId], references: [id])
+}
+
+model Profissional {
+  id                  String                  @id @default(uuid())
+  usuarioId           String                  @unique
+  empresaId           String
+  agendamentos        Agendamento[]
+  avaliacoesRecebidas AvaliacaoProfissional[]
+  bloqueios           Bloqueio[]
+  horarios            HorarioTrabalho[]
+  empresa             Empresa                 @relation(fields: [empresaId], references: [id])
+  usuario             Usuario                 @relation(fields: [usuarioId], references: [id])
+}
+
+model Cliente {
+  id                  String             @id @default(uuid())
+  usuarioId           String             @unique
+  agendamentos        Agendamento[]
+  avaliacoesRecebidas AvaliacaoCliente[]
+  usuario             Usuario            @relation(fields: [usuarioId], references: [id])
+}
+
+model Servico {
+  id           String        @id @default(uuid())
+  empresaId    String
+  nome         String
+  duracaoMin   Int
+  preco        Decimal
+  agendamentos Agendamento[]
+  empresa      Empresa       @relation(fields: [empresaId], references: [id])
+}
+
+model HorarioTrabalho {
+  id             String       @id @default(uuid())
+  profissionalId String
+  diaSemana      Int
+  horaInicio     String
+  horaFim        String
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+}
+
+model Bloqueio {
+  id             String       @id @default(uuid())
+  profissionalId String
+  inicio         DateTime
+  fim            DateTime
+  motivo         String?
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+}
+
+model Agendamento {
+  id                    String                 @id @default(uuid())
+  clienteId             String
+  profissionalId        String
+  servicoId             String
+  inicio                DateTime
+  fim                   DateTime
+  status                StatusAgendamento      @default(PENDENTE)
+  criadoEm              DateTime               @default(now())
+  cliente               Cliente                @relation(fields: [clienteId], references: [id])
+  profissional          Profissional           @relation(fields: [profissionalId], references: [id])
+  servico               Servico                @relation(fields: [servicoId], references: [id])
+  avaliacaoCliente      AvaliacaoCliente?
+  avaliacaoProfissional AvaliacaoProfissional?
+}
+
+model AvaliacaoCliente {
+  id            String      @id @default(uuid())
+  agendamentoId String      @unique
+  clienteId     String
+  compareceu    Boolean
+  atrasoMais15  Boolean
+  cancelouTarde Boolean
+  nota          Int
+  criadoEm      DateTime    @default(now())
+  agendamento   Agendamento @relation(fields: [agendamentoId], references: [id])
+  cliente       Cliente     @relation(fields: [clienteId], references: [id])
+}
+
+model AvaliacaoProfissional {
+  id             String       @id @default(uuid())
+  agendamentoId  String       @unique
+  profissionalId String
+  pontualidade   Int
+  qualidade      Int
+  atendimento    Int
+  limpeza        Int
+  criadoEm       DateTime     @default(now())
+  agendamento    Agendamento  @relation(fields: [agendamentoId], references: [id])
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+}
+
+model IndiceConfiabilidade {
+  id           String   @id @default(uuid())
+  usuarioId    String   @unique
+  pontuacao    Int
+  categoria    String
+  atualizadoEm DateTime @updatedAt
+}
+
+enum TipoUsuario {
+  EMPRESA_ADMIN
+  PROFISSIONAL
+  CLIENTE
+}
+
+enum StatusAgendamento {
+  PENDENTE
+  CONFIRMADO
+  CANCELADO
+  CONCLUIDO
+  NAO_COMPARECEU
+}
+
+enum Plano {
+  BASICO
+  PROFISSIONAL
+  PREMIUM
+}
+
+enum StatusAssinatura {
+  PENDENTE
+  ATIVA
+  ATRASADA
+  CANCELADA
+}
